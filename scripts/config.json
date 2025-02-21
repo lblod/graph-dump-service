@@ -1,0 +1,21 @@
+{
+  "version": "0.1",
+  "scripts": [
+    {
+    "documentation": {
+      "command": "create-dump",
+      "description": "Inserts a job to create a dump",
+      "arguments": ["jobs-graph","job-operation"]
+    },
+    "environment": {
+      "image": "curlimages/curl",
+      "interactive": false,
+      "script": "generate-dump/run.sh",
+      "join_networks": true
+    },
+    "mounts": {
+
+    }
+  }
+  ]
+}
