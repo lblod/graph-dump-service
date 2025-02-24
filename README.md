@@ -86,7 +86,7 @@ INSERT DATA
 <http://redpencil.data.gift/id/scheduled-task/c2de4099-e97d-452a-a22c-dee4475715be> <http://mu.semte.ch/vocabularies/core/uuid> "c2de4099-e97d-452a-a22c-dee4475715be" .
 <http://redpencil.data.gift/id/scheduled-task/c2de4099-e97d-452a-a22c-dee4475715be> <http://purl.org/dc/terms/created> "2024-01-26T15:06:01.265Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
 <http://redpencil.data.gift/id/scheduled-task/c2de4099-e97d-452a-a22c-dee4475715be> <http://purl.org/dc/terms/modified> "2024-01-26T15:06:01.265Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-<http://redpencil.data.gift/id/scheduled-task/c2de4099-e97d-452a-a22c-dee4475715be> <http://redpencil.data.gift/id/jobs/concept/TaskOperation/deltas/deltaDumpFileCreation> .
+<http://redpencil.data.gift/id/scheduled-task/c2de4099-e97d-452a-a22c-dee4475715be>	<http://redpencil.data.gift/vocabularies/tasks/operation> <http://redpencil.data.gift/id/jobs/concept/TaskOperation/deltas/deltaDumpFileCreation> .
 <http://redpencil.data.gift/id/scheduled-task/c2de4099-e97d-452a-a22c-dee4475715be> <http://redpencil.data.gift/vocabularies/tasks/index> "0"^^<http://www.w3.org/2001/XMLSchema#integer>.
 <http://redpencil.data.gift/id/scheduled-task/c2de4099-e97d-452a-a22c-dee4475715be> <http://purl.org/dc/terms/isPartOf> <http://redpencil.data.gift/id/scheduled-job/c2ffa700-e462-46b4-abf5-103d1a1854d0> .
 
