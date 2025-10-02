@@ -2,7 +2,7 @@ import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
 import mu, { sparqlEscapeString, sparqlEscapeDateTime, sparqlEscapeInt, sparqlEscapeUri } from 'mu';
 import path from 'path';
 import fs from 'fs';
-import { generateDumpFile, deleteDumpFile } from './helpers';
+import { generateDumpFile, deleteDumpFile, createCompressedDump } from './helpers';
 import {
   DCAT_DATASET_GRAPH,
   SERVICE_NAME,
@@ -34,14 +34,16 @@ export class DatasetManager {
       return;
     }
     else {
+      this.compressedFilePath = await createCompressedDump(this.filePath);
       await this.generateDataset();
       await this.generateTtlDistribution();
+      await this.generateCompressedDistribution();
       if(this.cleanupOldDumps) {
         await this.deletePrevious();
       } else {
         await this.deprecatePrevious();
       }
-      return this.filePath;
+      return { ttlPath: this.filePath, compressedPath: this.compressedFilePath };
     }
   }
 
@@ -78,17 +80,15 @@ export class DatasetManager {
   }
 
   /**
-   * Create a FileDataObject for the ttl file,
-   * insert a distribution for the dataset ttl file
+   * Create a FileDataObject and distribution for a file
    *
    * @private
    */
-  async generateTtlDistribution() {
+  async generateDistribution(filePath, format, titleSuffix = '') {
     const now = Date.now();
-    const fileName = path.basename(this.filePath);
-    const extension = path.extname(this.filePath);
-    const format = 'text/turtle';
-    const fileStats = fs.statSync(this.filePath);
+    const fileName = path.basename(filePath);
+    const extension = path.extname(filePath);
+    const fileStats = fs.statSync(filePath);
     const created = new Date(fileStats.birthtime);
     const size = fileStats.size;
 
@@ -96,7 +96,7 @@ export class DatasetManager {
     const logicalFileUri = `http://data.lblod.info/id/file/${logicalFileUuid}`;
 
     const physicalFileUuid = mu.uuid();
-    const physicalFileUri = this.filePath.replace('/share/', 'share://');
+    const physicalFileUri = filePath.replace('/share/', 'share://');
 
     const distributionUuid = mu.uuid();
     const distributionUri = `http://data.lblod.info/id/distribution/${distributionUuid}`;
@@ -133,7 +133,7 @@ export class DatasetManager {
             dct:issued ${sparqlEscapeDateTime(now)} ;
             dcat:byteSize ${sparqlEscapeInt(size)} ;
             dct:format ${sparqlEscapeString(format)} ;
-            dct:title ?title .
+            dct:title ?finalTitle .
             ?dataset dcat:distribution ${sparqlEscapeUri(distributionUri)} .
         }
       }
@@ -142,8 +142,17 @@ export class DatasetManager {
         GRAPH ${sparqlEscapeUri(this.dcatGraph)} {
           ?dataset dct:title ?title
         }
+        BIND(${titleSuffix ? `CONCAT(?title, ${sparqlEscapeString(titleSuffix)})` : '?title'} as ?finalTitle)
       }
     `);
+  }
+
+  async generateTtlDistribution() {
+    await this.generateDistribution(this.filePath, 'text/turtle');
+  }
+
+  async generateCompressedDistribution() {
+    await this.generateDistribution(this.compressedFilePath, 'application/x-xz', ' (XZ compressed)');
   }
 
   async getPreviousDatasets( lastRevisionOnly = true ) {

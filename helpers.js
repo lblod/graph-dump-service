@@ -3,6 +3,9 @@ import fs from 'fs/promises';
 import path from 'path';
 import { uuid, sparqlEscapeUri,sparqlEscapeString } from 'mu';
 import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
+import { createReadStream, createWriteStream } from 'fs';
+import { pipeline } from 'stream/promises';
+import lzma from 'node:lzma';
 import { DatasetManager } from './dataset';
 import {
   HOST,
@@ -91,13 +94,13 @@ export async function produceDumpFile(task) {
                                        FILES_GRAPH,
                                        CLEAN_OLD_DUMPS);
     await updateStatus(task, STATUS_BUSY);
-    const filePath = await manager.createDumpFile();
-    if (filePath) {
-      await createResultContainer(task, filePath);
+    const result = await manager.createDumpFile();
+    if (result) {
+      await createResultContainer(task, [result.ttlPath, result.compressedPath]);
       await updateStatus(task, STATUS_SUCCESS);
     }
     else {
-      throw "did not receive filePath";
+      throw "did not receive result";
     }
   } catch (e) {
     console.error(`An error occured while creating dump file for task ${task}: ${e}`);
@@ -106,34 +109,52 @@ export async function produceDumpFile(task) {
   }
 }
 
-async function createResultContainer(task,file) {
+async function createResultContainer(task, files) {
   const containerUUID = uuid();
   const containerUri = `http://internal.example.com/container/${containerUUID}`;
-  const fileUri = file.replace('/share/', 'share://');
+
+  // Create the container first
   await update(`
      ${PREFIXES}
      INSERT {
        GRAPH ?g {
          ?task <http://redpencil.data.gift/vocabularies/tasks/resultsContainer> ${sparqlEscapeUri(containerUri)}.
          ${sparqlEscapeUri(containerUri)} a <http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#DataContainer>;
-     <http://mu.semte.ch/vocabularies/core/uuid> ${sparqlEscapeString(containerUUID)};
-                                         <http://redpencil.data.gift/vocabularies/tasks/hasFile> ?file.
-             ?file ?p ?o.
-             ?logicalFile ?lp ?lo.
+                                          <http://mu.semte.ch/vocabularies/core/uuid> ${sparqlEscapeString(containerUUID)}.
        }
      }
      WHERE {
-     BIND(${sparqlEscapeUri(task)} as ?task)
-     BIND(${sparqlEscapeUri(fileUri)} as ?file)
-     GRAPH ?g {
-       ?task a <http://redpencil.data.gift/vocabularies/tasks/Task>
-     }
-     GRAPH ${sparqlEscapeUri(FILES_GRAPH)} {
-             ?file nie:dataSource ?logicalFile; ?p ?o.
-             ?logicalFile a nfo:FileDataObject; ?lp ?lo.
-     }
+       BIND(${sparqlEscapeUri(task)} as ?task)
+       GRAPH ?g {
+         ?task a <http://redpencil.data.gift/vocabularies/tasks/Task>
+       }
      }
   `);
+
+  // Link each file to the container
+  for (const file of files) {
+    const fileUri = file.replace('/share/', 'share://');
+    await update(`
+       ${PREFIXES}
+       INSERT {
+         GRAPH ?g {
+           ${sparqlEscapeUri(containerUri)} <http://redpencil.data.gift/vocabularies/tasks/hasFile> ?file.
+           ?file ?p ?o.
+           ?logicalFile ?lp ?lo.
+         }
+       }
+       WHERE {
+         BIND(${sparqlEscapeUri(fileUri)} as ?file)
+         GRAPH ?g {
+           ${sparqlEscapeUri(containerUri)} a <http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#DataContainer>
+         }
+         GRAPH ${sparqlEscapeUri(FILES_GRAPH)} {
+           ?file nie:dataSource ?logicalFile; ?p ?o.
+           ?logicalFile a nfo:FileDataObject; ?lp ?lo.
+         }
+       }
+    `);
+  }
 }
 
 async function moveFile(sourcePath, destinationPath) {
@@ -144,6 +165,25 @@ async function moveFile(sourcePath, destinationPath) {
     console.log(`File moved to ${destinationPath}`);
   } catch (err) {
     console.error('Error moving file:', err);
+  }
+}
+
+export async function createCompressedDump(ttlFilePath) {
+  try {
+    console.log('started compressing dump file at', new Date().toISOString());
+    const compressedFileName = path.basename(ttlFilePath) + '.xz';
+    const compressedPath = path.join(path.dirname(ttlFilePath), compressedFileName);
+
+    const readStream = createReadStream(ttlFilePath);
+    const writeStream = createWriteStream(compressedPath);
+    const compressor = lzma.createXZCompressor({ preset: 6 });
+
+    await pipeline(readStream, compressor, writeStream);
+    console.log('finished compressing dump file at', new Date().toISOString());
+    return compressedPath;
+  } catch (err) {
+    console.error('Error compressing file:', err);
+    throw err;
   }
 }
 
