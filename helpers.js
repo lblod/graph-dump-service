@@ -5,7 +5,7 @@ import { uuid, sparqlEscapeUri,sparqlEscapeString } from 'mu';
 import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
 import { createReadStream, createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
-import lzma from 'node:lzma';
+import { createGzip } from 'node:zlib';
 import { DatasetManager } from './dataset';
 import {
   HOST,
@@ -171,12 +171,12 @@ async function moveFile(sourcePath, destinationPath) {
 export async function createCompressedDump(ttlFilePath) {
   try {
     console.log('started compressing dump file at', new Date().toISOString());
-    const compressedFileName = path.basename(ttlFilePath) + '.xz';
+    const compressedFileName = path.basename(ttlFilePath) + '.gz';
     const compressedPath = path.join(path.dirname(ttlFilePath), compressedFileName);
 
     const readStream = createReadStream(ttlFilePath);
     const writeStream = createWriteStream(compressedPath);
-    const compressor = lzma.createXZCompressor({ preset: 6 });
+    const compressor = createGzip({ level: 6 });
 
     await pipeline(readStream, compressor, writeStream);
     console.log('finished compressing dump file at', new Date().toISOString());
