@@ -152,7 +152,7 @@ export class DatasetManager {
   }
 
   async generateCompressedDistribution() {
-    await this.generateDistribution(this.compressedFilePath, 'application/x-xz', ' (XZ compressed)');
+    await this.generateDistribution(this.compressedFilePath, 'application/gzip', ' (GZ compressed)');
   }
 
   async getPreviousDatasets( lastRevisionOnly = true ) {
